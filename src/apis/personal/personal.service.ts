@@ -1,200 +1,245 @@
-import Personal from './personal.model.js';
-import User from '../user/user.model.js';
-
+import { PersonalModel, IPersonal } from "./personal.model.js";
+import axios from "axios";
 export const findAllPersonal = async () => {
-  try {
-    const personal = await Personal.find()
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' })
-      .sort({ apellidoPaterno: 1 });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal');
-  }
-};
-
-export const findPersonalById = async (id: string) => {
-  try {
-    const personal = await Personal.findById(id)
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal');
-  }
-};
-
-export const findPersonalByNumeroEmpleado = async (numeroEmpleado: string) => {
-  try {
-    const personal = await Personal.findOne({ numeroEmpleado })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal por número de empleado');
-  }
-};
-
-export const findPersonalByEmail = async (email: string) => {
-  try {
-    const personal = await Personal.findOne({ email })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal por email');
-  }
-};
-
-export const findPersonalByUserId = async (userId: string) => {
-  try {
-    const personal = await Personal.findOne({ usuario: userId })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal por usuario');
-  }
-};
-
-export const createPersonal = async (personalData: any) => {
-  try {
-    // 1. Crear el usuario primero con rol "admin"
-    const user = new User({
-      nombre: `${personalData.nombre} ${personalData.apellidoPaterno} ${personalData.apellidoMaterno || ''}`.trim(),
-      email: personalData.email,
-      passwordHash: personalData.passwordHash || 'temporal123',
-      rol: "admin",
-      estatus: "activo"
-    });
-    await user.save();
-
-    // 2. Crear el registro de personal vinculado al usuario
-    const personal = new Personal({
-      ...personalData,
-      usuario: user._id
-    });
-    await personal.save();
-
-    return await personal.populate(['edificioId', { path: 'usuario', select: '-passwordHash' }]);
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const updatePersonal = async (id: string, personalData: any) => {
-  try {
-    const personal = await Personal.findByIdAndUpdate(
-      id,
-      personalData,
-      { new: true, runValidators: true }
-    )
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' });
-    return personal;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const deletePersonal = async (id: string) => {
-  try {
-    const personal = await Personal.findById(id);
-    if (!personal) {
-      throw new Error('Personal no encontrado');
+    try {
+        const personal = await PersonalModel.find().sort({ nombre: 1 });
+        return personal;
+    } catch (error) {
+        throw new Error('Error obteniendo personal');
     }
+};
+export const findPersonalById = async (id: string) => {
+    try {
+        const personal = await PersonalModel.findById(id);
+        return personal;
+    } catch (error) {
+        throw new Error('Error obteniendo personal por ID');
+    }
+};
+export const createPersonal = async (personalData: Partial<IPersonal>) => {
+    try {
+        const personal = new PersonalModel(personalData);
+        await personal.save();
+        return personal;
+    } catch (error) {
+        throw new Error('Error creando personal');
+    }
+};
+export const updatePersonal = async (id: string, personalData: Partial<IPersonal>) => {
+    try {
+        const personal = await PersonalModel.findByIdAndUpdate(
+            id,
+            personalData,
+            { new: true, runValidators: true }
+        );
+        return personal;
+    } catch (error) {
+        throw new Error('Error actualizando personal');
+    }
+};
+export const deletePersonal = async (id: string) => {
+    try {
+        const personal = await PersonalModel.findByIdAndDelete(id);
+        return personal;
+    } catch (error) {
+        throw new Error('Error eliminando personal');
+    }
+};
+export const findPersonalByDepartamento = async (departamento: string) => {
+    try {
+        const personal = await PersonalModel.find({ 
+            departamento: { $regex: departamento, $options: 'i' } 
+        }).sort({ nombre: 1 });
+        return personal;
+    } catch (error) {
+        throw new Error('Error obteniendo personal por departamento');
+    }
+};
+export const findPersonalByEstatus = async (estatus: string) => {
+    try {
+        const personal = await PersonalModel.find({ estatus }).sort({ nombre: 1 });
+        return personal;
+    } catch (error) {
+        throw new Error('Error obteniendo personal por estatus');
+    }
+};
+export const findPersonalByNombre = async (nombre: string) => {
+    try {
+        const personal = await PersonalModel.find({
+            $or: [
+                { nombre: { $regex: nombre, $options: 'i' } },
+                { apellidoPaterno: { $regex: nombre, $options: 'i' } },
+                { apellidoMaterno: { $regex: nombre, $options: 'i' } }
+            ]
+        }).sort({ nombre: 1 });
+        return personal;
+    } catch (error) {
+        throw new Error('Error buscando personal por nombre');
+    }
+};
+export const findPersonalByNumeroEmpleado = async (numeroEmpleado: string) => {
+    try {
+        const personal = await PersonalModel.findOne({ numeroEmpleado });
+        return personal;
+    } catch (error) {
+        throw new Error('Error buscando personal por número de empleado');
+    }
+};
+export const findPersonalConUbicacion = async (departamento: string) => {
+    try {
+        // 1. Buscar personal por departamento
+        const personal = await PersonalModel.find({ 
+            departamento: { $regex: departamento, $options: 'i' } 
+        }).sort({ nombre: 1 });
 
-    // Eliminar también el usuario asociado
-    await User.findByIdAndDelete(personal.usuario);
-    
-    // Eliminar el registro de personal
-    await Personal.findByIdAndDelete(id);
-    
-    return personal;
-  } catch (error) {
-    throw error;
-  }
+        if (personal.length === 0) {
+            return {
+                departamento,
+                ubicacion: null,
+                personal: []
+            };
+        }
+
+        // 2. Buscar ubicación del departamento en la API de locations
+        const LOCATIONS_API = process.env.LOCATIONS_API_URL || 'http://localhost:3000/api/locations';
+        
+        let ubicacionDepartamento = null;
+        try {
+            const response = await axios.get(LOCATIONS_API);
+            const locations = response.data.data || response.data;
+            
+            // Buscar la ubicación que coincida con el departamento
+            ubicacionDepartamento = locations.find((loc: any) => 
+                loc.nombre.toLowerCase().includes(departamento.toLowerCase())
+            );
+        } catch (error) {
+            console.error('Error obteniendo ubicaciones:', error);
+        }
+
+        // 3. Combinar datos
+        return {
+            departamento,
+            ubicacion: ubicacionDepartamento ? {
+                nombre: ubicacionDepartamento.nombre,
+                coordenadas: ubicacionDepartamento.posicion,
+                id: ubicacionDepartamento.id || ubicacionDepartamento._id
+            } : null,
+            personal: personal.map(p => ({
+                numeroEmpleado: p.numeroEmpleado,
+                nombreCompleto: `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`,
+                email: p.email,
+                telefono: p.telefono,
+                cargo: p.cargo,
+                cubiculo: p.cubiculo,
+                planta: p.planta,
+                estatus: p.estatus
+            })),
+            total: personal.length
+        };
+
+    } catch (error) {
+        throw new Error('Error obteniendo personal con ubicación');
+    }
+};
+export const findProfesorConUbicacion = async (numeroEmpleado: string) => {
+    try {
+        const profesor = await PersonalModel.findOne({ numeroEmpleado });
+
+        if (!profesor) {
+            return null;
+        }
+
+        const LOCATIONS_API = process.env.LOCATIONS_API_URL || 'http://localhost:3000/api/locations';
+        
+        let ubicacionDepartamento = null;
+        try {
+            const response = await axios.get(LOCATIONS_API);
+            const locations = response.data.data || response.data;
+            
+            ubicacionDepartamento = locations.find((loc: any) => 
+                loc.nombre.toLowerCase().includes(profesor.departamento.toLowerCase())
+            );
+        } catch (error) {
+            console.error('Error obteniendo ubicaciones:', error);
+        }
+
+        return {
+            profesor: {
+                numeroEmpleado: profesor.numeroEmpleado,
+                nombreCompleto: `${profesor.nombre} ${profesor.apellidoPaterno} ${profesor.apellidoMaterno}`,
+                email: profesor.email,
+                telefono: profesor.telefono,
+                departamento: profesor.departamento,
+                cargo: profesor.cargo,
+                cubiculo: profesor.cubiculo,
+                planta: profesor.planta,
+                fechaIngreso: profesor.fechaIngreso,
+                estatus: profesor.estatus
+            },
+            ubicacion: ubicacionDepartamento ? {
+                nombre: ubicacionDepartamento.nombre,
+                coordenadas: ubicacionDepartamento.posicion,
+                id: ubicacionDepartamento.id || ubicacionDepartamento._id,
+                comoLlegar: `El profesor ${profesor.nombre} se encuentra en ${ubicacionDepartamento.nombre}, ${profesor.planta || 'planta no especificada'}, cubículo ${profesor.cubiculo || 'no especificado'}`
+            } : null
+        };
+
+    } catch (error) {
+        throw new Error('Error obteniendo información del profesor');
+    }
+};
+export const buscarPersonal = async (termino: string) => {
+    try {
+        const personal = await PersonalModel.find({
+            $or: [
+                { nombre: { $regex: termino, $options: 'i' } },
+                { apellidoPaterno: { $regex: termino, $options: 'i' } },
+                { apellidoMaterno: { $regex: termino, $options: 'i' } },
+                { email: { $regex: termino, $options: 'i' } },
+                { numeroEmpleado: { $regex: termino, $options: 'i' } }
+            ],
+            estatus: 'activo'
+        }).sort({ nombre: 1 }).limit(10);
+
+        if (personal.length === 0) {
+            return [];
+        }
+
+        const LOCATIONS_API = process.env.LOCATIONS_API_URL || 'http://localhost:3000/api/locations';
+        
+        let locations: any[] = [];
+        try {
+            const response = await axios.get(LOCATIONS_API);
+            locations = response.data.data || response.data;
+        } catch (error) {
+            console.error('Error obteniendo ubicaciones:', error);
+        }
+
+        const resultados = personal.map(p => {
+            const ubicacion = locations.find((loc: any) => 
+                loc.nombre.toLowerCase().includes(p.departamento.toLowerCase())
+            );
+
+            return {
+                numeroEmpleado: p.numeroEmpleado,
+                nombreCompleto: `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`,
+                email: p.email,
+                telefono: p.telefono,
+                cargo: p.cargo,
+                departamento: p.departamento,
+                cubiculo: p.cubiculo,
+                planta: p.planta,
+                ubicacion: ubicacion ? {
+                    nombre: ubicacion.nombre,
+                    coordenadas: ubicacion.posicion
+                } : null
+            };
+        });
+
+        return resultados;
+
+    } catch (error) {
+        throw new Error('Error en búsqueda de personal');
+    }
 };
 
-export const updateEstatus = async (id: string, estatus: "dentro" | "fuera") => {
-  try {
-    const personal = await Personal.findByIdAndUpdate(
-      id,
-      { estatus },
-      { new: true }
-    )
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' });
-    return personal;
-  } catch (error) {
-    throw new Error('Error actualizando estatus');
-  }
-};
-
-export const findPersonalByCargo = async (cargo: string) => {
-  try {
-    const personal = await Personal.find({ cargo })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' })
-      .sort({ apellidoPaterno: 1 });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal por cargo');
-  }
-};
-
-export const findPersonalByEdificio = async (edificioId: string) => {
-  try {
-    const personal = await Personal.find({ edificioId })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' })
-      .sort({ apellidoPaterno: 1 });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal por edificio');
-  }
-};
-
-export const findPersonalDentro = async () => {
-  try {
-    const personal = await Personal.find({ estatus: "dentro" })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' })
-      .sort({ apellidoPaterno: 1 });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal dentro');
-  }
-};
-
-export const findPersonalFuera = async () => {
-  try {
-    const personal = await Personal.find({ estatus: "fuera" })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' })
-      .sort({ apellidoPaterno: 1 });
-    return personal;
-  } catch (error) {
-    throw new Error('Error obteniendo personal fuera');
-  }
-};
-
-export const searchPersonal = async (searchTerm: string) => {
-  try {
-    const personal = await Personal.find({
-      $or: [
-        { nombre: { $regex: searchTerm, $options: 'i' } },
-        { apellidoPaterno: { $regex: searchTerm, $options: 'i' } },
-        { apellidoMaterno: { $regex: searchTerm, $options: 'i' } },
-        { email: { $regex: searchTerm, $options: 'i' } },
-        { numeroEmpleado: { $regex: searchTerm, $options: 'i' } }
-      ]
-    })
-      .populate('edificioId')
-      .populate({ path: 'usuario', select: '-passwordHash' })
-      .sort({ apellidoPaterno: 1 });
-    return personal;
-  } catch (error) {
-    throw new Error('Error buscando personal');
-  }
-};

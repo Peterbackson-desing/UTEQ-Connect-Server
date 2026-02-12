@@ -1,36 +1,29 @@
-import * as express from 'express';
-import { 
-  getPersonal, 
-  getPersonalById,
-  getPersonalByNumeroEmpleado,
-  getPersonalByEmail,
-  getPersonalByUserId,
-  createPersonal, 
-  updatePersonal, 
-  deletePersonal,
-  updateEstatus,
-  getPersonalByCargo,
-  getPersonalByEdificio,
-  getPersonalDentro,
-  getPersonalFuera,
-  searchPersonal
+import { Router } from 'express';
+import {
+    getAllPersonal,
+    getPersonalById,
+    createNewPersonal,
+    updatePersonalById,
+    deletePersonalById,
+    getPersonalByDepartamento,
+    getPersonalByEstatus,
+    getPersonalConUbicacion,
+    getProfesorConUbicacion,
+    searchPersonal
 } from './personal.controller.js';
 
-const router = express.Router();
+const router = Router();
 
-router.get('/', getPersonal);
-router.get('/dentro', getPersonalDentro);
-router.get('/fuera', getPersonalFuera);
-router.get('/search/:term', searchPersonal);
-router.get('/cargo/:cargo', getPersonalByCargo);
-router.get('/edificio/:edificioId', getPersonalByEdificio);
-router.get('/numero/:numeroEmpleado', getPersonalByNumeroEmpleado);
-router.get('/email/:email', getPersonalByEmail);
-router.get('/user/:userId', getPersonalByUserId);
+router.get('/buscar', searchPersonal);
+router.get('/departamento/:departamento', getPersonalByDepartamento);
+router.get('/estatus/:estatus', getPersonalByEstatus);
+router.get('/ubicacion/departamento/:departamento', getPersonalConUbicacion);
+router.get('/ubicacion/profesor/:numeroEmpleado', getProfesorConUbicacion);
+
+router.get('/', getAllPersonal);
 router.get('/:id', getPersonalById);
-router.post('/', createPersonal);
-router.put('/:id', updatePersonal);
-router.delete('/:id', deletePersonal);
-router.patch('/:id/estatus', updateEstatus);
+router.post('/', createNewPersonal);
+router.put('/:id', updatePersonalById);
+router.delete('/:id', deletePersonalById);
 
 export default router;
